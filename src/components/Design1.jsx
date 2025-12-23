@@ -147,3 +147,5 @@ const Design1 = ({ questions = [] }) => {
 };
 
 export default Design1;
+
+
