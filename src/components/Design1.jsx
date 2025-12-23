@@ -8,20 +8,14 @@ const randomRGB = () =>
 
 const Design1 = ({ questions = [] }) => {
   const userName = localStorage.getItem("name") || "User";
-  const userKey = `quiz_${userName}`;
 
-  // 🔹 Restore saved state
-  const savedSelected =
-    JSON.parse(localStorage.getItem(`${userKey}_selected`)) || {};
-  const savedScore =
-    JSON.parse(localStorage.getItem(`${userKey}_score`)) || 0;
-
-  const [selected, setSelected] = useState(savedSelected);
-  const [score, setScore] = useState(savedScore);
+  const [selected, setSelected] = useState({});
+  const [score, setScore] = useState(0);
   const [colors, setColors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // 🎨 Generate colors when questions change
+  /* 🎨 OLD COLOR LOGIC (UNCHANGED) */
   useEffect(() => {
     const temp = {};
     questions.forEach(q => {
@@ -30,7 +24,43 @@ const Design1 = ({ questions = [] }) => {
     setColors(temp);
   }, [questions]);
 
-  // ✅ Save score to backend (STABLE)
+  /* ✅ FETCH SCORE FROM BACKEND (SOURCE OF TRUTH) */
+  useEffect(() => {
+  const fetchScore = async () => {
+    try {
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/scores/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setScore(data.score);
+        setSubmitted(true); // lock quiz
+      }
+      // 👇 IMPORTANT: if 404, DO NOTHING (new user)
+    } catch (err) {
+      console.log("No previous score (new user)");
+    }
+  };
+
+  fetchScore();
+}, []);
+
+
+  /* 🔓 LOGOUT (OLD STYLE SAFE) */
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("name");
+    window.location.href = "/login";
+  };
+
+  /* ✅ SAVE SCORE (BACKEND UPSERT HANDLES DUPLICATES) */
   const saveScore = useCallback(async () => {
     try {
       await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
@@ -49,40 +79,34 @@ const Design1 = ({ questions = [] }) => {
     }
   }, [score, questions.length]);
 
-  // ✅ Handle option click
+  /* ✅ OLD CLICK LOGIC (UNCHANGED UI) */
   const handleClick = (id, option, correctAnswer) => {
-    if (selected[id]) return;
+    if (selected[id] || submitted) return;
 
-    const updatedSelected = { ...selected, [id]: option };
-    setSelected(updatedSelected);
-    localStorage.setItem(
-      `${userKey}_selected`,
-      JSON.stringify(updatedSelected)
-    );
+    setSelected(prev => ({ ...prev, [id]: option }));
 
     if (option === correctAnswer) {
-      const newScore = score + 1;
-      setScore(newScore);
-      localStorage.setItem(
-        `${userKey}_score`,
-        JSON.stringify(newScore)
-      );
+      setScore(prev => prev + 1);
     }
   };
 
-  // ✅ Submit score ONCE after all questions answered
+  /* ✅ AUTO SUBMIT ONCE */
   useEffect(() => {
-    const totalAnswered = Object.keys(selected).length;
-
     if (
-      totalAnswered === questions.length &&
+      !loading &&
+      Object.keys(selected).length === questions.length &&
       questions.length > 0 &&
       !submitted
     ) {
       saveScore();
       setSubmitted(true);
     }
-  }, [selected, questions.length, submitted, saveScore]);
+  }, [selected, questions.length, submitted, saveScore, loading]);
+
+  /* ⏳ LOADING (OLD SIMPLE TEXT) */
+  if (loading) {
+    return <h2 style={{ textAlign: "center" }}>Loading...</h2>;
+  }
 
   if (questions.length === 0) {
     return <h2>No questions found</h2>;
@@ -123,14 +147,18 @@ const Design1 = ({ questions = [] }) => {
                     key={i}
                     className={className}
                     style={{
-                      pointerEvents: selected[q._id] ? "none" : "auto",
-                      opacity: selected[q._id] ? 0.7 : 1,
-                      cursor: selected[q._id]
-                        ? "not-allowed"
-                        : "pointer"
+                      pointerEvents:
+                        selected[q._id] || submitted
+                          ? "none"
+                          : "auto",
+                      opacity:
+                        selected[q._id] || submitted ? 0.7 : 1,
+                      cursor:
+                        selected[q._id] || submitted
+                          ? "not-allowed"
+                          : "pointer"
                     }}
                     onClick={() =>
-                      !selected[q._id] &&
                       handleClick(q._id, opt, q.answer)
                     }
                   >
@@ -142,10 +170,12 @@ const Design1 = ({ questions = [] }) => {
           </div>
         </div>
       ))}
+
+      <div style={{ textAlign: "center", marginTop: "20px" }}>
+        <button onClick={handleLogout}>Logout</button>
+      </div>
     </div>
   );
 };
 
 export default Design1;
-
-
