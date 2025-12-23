@@ -6,7 +6,7 @@ const randomRGB = () =>
     Math.random() * 200
   )}, ${Math.floor(Math.random() * 200)})`;
 
-const Design1 = ({ questions }) => {
+const Design1 = ({ questions = [] }) => {
   const userName = localStorage.getItem("name") || "User";
   const userKey = `quiz_${userName}`;
 
@@ -30,7 +30,7 @@ const Design1 = ({ questions }) => {
     setColors(temp);
   }, [questions]);
 
-  // ✅ Save score to backend (STABLE FUNCTION)
+  // ✅ Save score to backend (STABLE)
   const saveScore = useCallback(async () => {
     try {
       await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
@@ -49,7 +49,7 @@ const Design1 = ({ questions }) => {
     }
   }, [score, questions.length]);
 
-  // ✅ Handle option click (LOCK + SAVE LOCAL)
+  // ✅ Handle option click
   const handleClick = (id, option, correctAnswer) => {
     if (selected[id]) return;
 
@@ -90,7 +90,6 @@ const Design1 = ({ questions }) => {
 
   return (
     <div className="box">
-      {/* 👤 USER NAME */}
       <h2 style={{ textAlign: "center" }}>
         Welcome, <span style={{ color: "green" }}>{userName}</span>
       </h2>
@@ -106,9 +105,7 @@ const Design1 = ({ questions }) => {
           style={{ backgroundColor: colors[q._id] }}
         >
           <div className="questions">
-            <h2>
-              {index + 1}. {q.question}
-            </h2>
+            <h2>{index + 1}. {q.question}</h2>
           </div>
 
           <div className="answers">
