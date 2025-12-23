@@ -13,7 +13,7 @@ const Design1 = ({ questions = [] }) => {
   const [score, setScore] = useState(0);
   const [colors, setColors] = useState({});
   const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
 
   /* 🎨 OLD COLOR LOGIC (UNCHANGED) */
   useEffect(() => {
