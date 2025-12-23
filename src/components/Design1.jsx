@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import "./Design.css";
 
 const randomRGB = () =>
@@ -8,9 +8,9 @@ const randomRGB = () =>
 
 const Design1 = ({ questions }) => {
   const userName = localStorage.getItem("name") || "User";
-  const userKey = `quiz_${userName}`; // 🔐 user-specific storage
+  const userKey = `quiz_${userName}`;
 
-  // 🔹 Load saved state (persist after refresh)
+  // 🔹 Restore saved state
   const savedSelected =
     JSON.parse(localStorage.getItem(`${userKey}_selected`)) || {};
   const savedScore =
@@ -21,7 +21,7 @@ const Design1 = ({ questions }) => {
   const [colors, setColors] = useState({});
   const [submitted, setSubmitted] = useState(false);
 
-  // 🎨 Generate colors once
+  // 🎨 Generate colors when questions change
   useEffect(() => {
     const temp = {};
     questions.forEach(q => {
@@ -30,7 +30,26 @@ const Design1 = ({ questions }) => {
     setColors(temp);
   }, [questions]);
 
-  // ✅ Handle answer click (LOCK + SAVE)
+  // ✅ Save score to backend (STABLE FUNCTION)
+  const saveScore = useCallback(async () => {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify({
+          score,
+          total: questions.length
+        })
+      });
+    } catch (err) {
+      console.error("Failed to save score");
+    }
+  }, [score, questions.length]);
+
+  // ✅ Handle option click (LOCK + SAVE LOCAL)
   const handleClick = (id, option, correctAnswer) => {
     if (selected[id]) return;
 
@@ -51,35 +70,19 @@ const Design1 = ({ questions }) => {
     }
   };
 
-  // ✅ Save score to backend ONCE after quiz finish
+  // ✅ Submit score ONCE after all questions answered
   useEffect(() => {
+    const totalAnswered = Object.keys(selected).length;
+
     if (
-      Object.keys(selected).length === questions.length &&
+      totalAnswered === questions.length &&
       questions.length > 0 &&
       !submitted
     ) {
       saveScore();
       setSubmitted(true);
     }
-  }, [selected]);
-
-  const saveScore = async () => {
-    try {
-      await fetch("http://localhost:5000/scores", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({
-          score,
-          total: questions.length
-        })
-      });
-    } catch (err) {
-      console.error("Failed to save score");
-    }
-  };
+  }, [selected, questions.length, submitted, saveScore]);
 
   if (questions.length === 0) {
     return <h2>No questions found</h2>;
@@ -103,7 +106,9 @@ const Design1 = ({ questions }) => {
           style={{ backgroundColor: colors[q._id] }}
         >
           <div className="questions">
-            <h2>{index + 1}. {q.question}</h2>
+            <h2>
+              {index + 1}. {q.question}
+            </h2>
           </div>
 
           <div className="answers">
@@ -123,7 +128,9 @@ const Design1 = ({ questions }) => {
                     style={{
                       pointerEvents: selected[q._id] ? "none" : "auto",
                       opacity: selected[q._id] ? 0.7 : 1,
-                      cursor: selected[q._id] ? "not-allowed" : "pointer"
+                      cursor: selected[q._id]
+                        ? "not-allowed"
+                        : "pointer"
                     }}
                     onClick={() =>
                       !selected[q._id] &&
