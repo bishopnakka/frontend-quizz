@@ -13,9 +13,8 @@ const Design1 = ({ questions = [] }) => {
   const [score, setScore] = useState(0);
   const [colors, setColors] = useState({});
   const [submitted, setSubmitted] = useState(false);
-  // const [loading, setLoading] = useState(true);
 
-  /* 🎨 OLD COLOR LOGIC (UNCHANGED) */
+  // 🎨 Generate colors once per question list
   useEffect(() => {
     const temp = {};
     questions.forEach(q => {
@@ -24,35 +23,33 @@ const Design1 = ({ questions = [] }) => {
     setColors(temp);
   }, [questions]);
 
-  /* ✅ FETCH SCORE FROM BACKEND (SOURCE OF TRUTH) */
+  // ✅ Fetch previous score from backend (source of truth)
   useEffect(() => {
-  const fetchScore = async () => {
-    try {
-      const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/scores/me`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
+    const fetchScore = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/scores/me`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
           }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setScore(data.score);
+          setSubmitted(true); // 🔒 lock quiz
         }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setScore(data.score);
-        setSubmitted(true); // lock quiz
+      } catch {
+        console.log("No previous score");
       }
-      // 👇 IMPORTANT: if 404, DO NOTHING (new user)
-    } catch (err) {
-      console.log("No previous score (new user)");
-    }
-  };
+    };
 
-  fetchScore();
-}, []);
+    fetchScore();
+  }, []);
 
-
-  /* 🔓 LOGOUT (OLD STYLE SAFE) */
+  // 🔓 Logout
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
@@ -60,7 +57,7 @@ const Design1 = ({ questions = [] }) => {
     window.location.href = "/login";
   };
 
-  /* ✅ SAVE SCORE (BACKEND UPSERT HANDLES DUPLICATES) */
+  // ✅ Save score to backend
   const saveScore = useCallback(async () => {
     try {
       await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
@@ -79,7 +76,7 @@ const Design1 = ({ questions = [] }) => {
     }
   }, [score, questions.length]);
 
-  /* ✅ OLD CLICK LOGIC (UNCHANGED UI) */
+  // ✅ Handle answer click
   const handleClick = (id, option, correctAnswer) => {
     if (selected[id] || submitted) return;
 
@@ -90,10 +87,9 @@ const Design1 = ({ questions = [] }) => {
     }
   };
 
-  /* ✅ AUTO SUBMIT ONCE */
+  // ✅ Submit score once
   useEffect(() => {
     if (
-      !loading &&
       Object.keys(selected).length === questions.length &&
       questions.length > 0 &&
       !submitted
@@ -101,12 +97,7 @@ const Design1 = ({ questions = [] }) => {
       saveScore();
       setSubmitted(true);
     }
-  }, [selected, questions.length, submitted, saveScore, loading]);
-
-  /* ⏳ LOADING (OLD SIMPLE TEXT) */
-  if (loading) {
-    return <h2 style={{ textAlign: "center" }}>Loading...</h2>;
-  }
+  }, [selected, questions.length, submitted, saveScore]);
 
   if (questions.length === 0) {
     return <h2>No questions found</h2>;
@@ -114,9 +105,32 @@ const Design1 = ({ questions = [] }) => {
 
   return (
     <div className="box">
-      <h2 style={{ textAlign: "center" }}>
-        Welcome, <span style={{ color: "green" }}>{userName}</span>
-      </h2>
+      {/* HEADER */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}
+      >
+        <h2>
+          Welcome, <span style={{ color: "green" }}>{userName}</span>
+        </h2>
+
+        <button
+          onClick={handleLogout}
+          style={{
+            padding: "6px 12px",
+            backgroundColor: "#e74c3c",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}
+        >
+          Logout
+        </button>
+      </div>
 
       <h1 className="score">
         Score: {score} / {questions.length}
@@ -129,7 +143,9 @@ const Design1 = ({ questions = [] }) => {
           style={{ backgroundColor: colors[q._id] }}
         >
           <div className="questions">
-            <h2>{index + 1}. {q.question}</h2>
+            <h2>
+              {index + 1}. {q.question}
+            </h2>
           </div>
 
           <div className="answers">
@@ -148,9 +164,7 @@ const Design1 = ({ questions = [] }) => {
                     className={className}
                     style={{
                       pointerEvents:
-                        selected[q._id] || submitted
-                          ? "none"
-                          : "auto",
+                        selected[q._id] || submitted ? "none" : "auto",
                       opacity:
                         selected[q._id] || submitted ? 0.7 : 1,
                       cursor:
@@ -170,10 +184,6 @@ const Design1 = ({ questions = [] }) => {
           </div>
         </div>
       ))}
-
-      <div style={{ textAlign: "center", marginTop: "20px" }}>
-        <button onClick={handleLogout}>Logout</button>
-      </div>
     </div>
   );
 };
