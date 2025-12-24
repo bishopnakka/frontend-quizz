@@ -1,156 +1,165 @@
-import React, { useEffect, useState, useCallback } from "react";
-import "./Design.css";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./AdminPanel.css";
 
-const randomRGB = () =>
-  `rgb(${Math.floor(Math.random() * 200)}, ${Math.floor(
-    Math.random() * 200
-  )}, ${Math.floor(Math.random() * 200)})`;
+const AdminPanel = ({ questions, setQuestions }) => {
+  const navigate = useNavigate();
 
-const Design1 = ({ questions = [] }) => {
-  const userName = localStorage.getItem("name") || "User";
+  const token = localStorage.getItem("token");
+  const role = localStorage.getItem("role");
 
-  const [selected, setSelected] = useState({});
-  const [score, setScore] = useState(0);
-  const [attemptedCount, setAttemptedCount] = useState(0);
-  const [colors, setColors] = useState({});
-  const [loading, setLoading] = useState(true);
-
-  /* 🎨 Stable colors */
   useEffect(() => {
-    const temp = {};
-    questions.forEach(q => {
-      temp[q._id] = temp[q._id] || randomRGB();
-    });
-    setColors(temp);
-  }, [questions]);
+    if (!token || role !== "ADMIN") {
+      navigate("/login");
+    }
+  }, [token, role, navigate]);
 
-  /* ✅ Load score from BACKEND (SOURCE OF TRUTH) */
-  useEffect(() => {
-    const loadScore = async () => {
-      try {
-        const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/scores/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`
-            }
-          }
-        );
+  const [form, setForm] = useState({
+    question: "",
+    options: ["", "", "", ""],
+    answer: ""
+  });
 
-        if (res.ok) {
-          const data = await res.json();
-          setScore(data.score);
-          setAttemptedCount(data.total); // 🔥 KEY FIX
-        }
-      } catch {
-        // first-time user → no score
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadScore();
-  }, []);
-
-  /* 🔓 Logout */
-  const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = "/login";
+  const handleOptionChange = (index, value) => {
+    const newOptions = [...form.options];
+    newOptions[index] = value;
+    setForm({ ...form, options: newOptions });
   };
 
-  /* ✅ Save / update score */
-  const saveScore = useCallback(async (newScore) => {
-    await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
+  const addQuestion = async () => {
+    if (!form.question || !form.answer) {
+      alert("Fill all fields");
+      return;
+    }
+
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/questions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`
+        Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({
-        score: newScore,
-        total: questions.length
-      })
+      body: JSON.stringify(form)
     });
-  }, [questions.length]);
 
-  /* ✅ Click handler */
-  const handleClick = (id, option, correctAnswer, index) => {
-    // 🔒 lock only OLD questions
-    if (index < attemptedCount || selected[id]) return;
+    const newQuestion = await res.json();
+    setQuestions([newQuestion, ...questions]);
 
-    setSelected(prev => ({ ...prev, [id]: option }));
-
-    if (option === correctAnswer) {
-      setScore(prev => prev + 1);
-    }
+    setForm({
+      question: "",
+      options: ["", "", "", ""],
+      answer: ""
+    });
   };
 
-  /* ✅ Submit when ALL current questions answered */
-  useEffect(() => {
-    if (
-      Object.keys(selected).length + attemptedCount === questions.length &&
-      questions.length > 0
-    ) {
-      saveScore(score);
-      setAttemptedCount(questions.length);
-    }
-  }, [selected, attemptedCount, questions.length, saveScore, score]);
+  const deleteQuestion = async (id) => {
+    await fetch(`${process.env.REACT_APP_API_URL}/questions/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
 
-  if (loading) return <h2>Loading quiz...</h2>;
-  if (questions.length === 0) return <h2>No questions found</h2>;
+    setQuestions(questions.filter(q => q._id !== id));
+  };
+
+  const [scores, setScores] = useState([]);
+
+  useEffect(() => {
+    fetch(`${process.env.REACT_APP_API_URL}/scores`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => setScores(data))
+      .catch(err => console.error(err));
+  }, [token]);
+
+  const logout = () => {
+    localStorage.clear();
+    navigate("/login");
+  };
 
   return (
-    <div className="box">
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <h2>
-          Welcome, <span style={{ color: "green" }}>{userName}</span>
-        </h2>
-        <button className="logoutbtn" onClick={handleLogout}>Logout</button>
+    <div className="admin-container">
+      {/* HEADER */}
+      <div className="admin-header">
+        <h1>Admin Panel</h1>
+        <button className="logout-btn" onClick={logout}>Logout</button>
       </div>
 
-      <h1 className="score">
-        Score: {score} / {questions.length}
-      </h1>
+      {/* ADD QUESTION */}
+      <div className="card">
+        <h2>Add Question</h2>
 
-      {questions.map((q, index) => (
-        <div
-          key={q._id}
-          className="quizz"
-          style={{ backgroundColor: colors[q._id] }}
-        >
-          <h2>{index + 1}. {q.question}</h2>
+        <input
+          className="input"
+          placeholder="Question"
+          value={form.question}
+          onChange={e => setForm({ ...form, question: e.target.value })}
+        />
 
-          <ul>
-            {q.options.map((opt, i) => {
-              let className = "";
-              if (selected[q._id]) {
-                if (opt === q.answer) className = "correct";
-                else if (opt === selected[q._id]) className = "wrong";
-              }
+        {form.options.map((opt, i) => (
+          <input
+            key={i}
+            className="input"
+            placeholder={`Option ${i + 1}`}
+            value={opt}
+            onChange={e => handleOptionChange(i, e.target.value)}
+          />
+        ))}
 
-              return (
-                <li
-                  key={i}
-                  className={className}
-                  style={{
-                    pointerEvents:
-                      index < attemptedCount ? "none" : "auto",
-                    opacity:
-                      index < attemptedCount ? 0.6 : 1
-                  }}
-                  onClick={() =>
-                    handleClick(q._id, opt, q.answer, index)
-                  }
-                >
-                  {opt}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+        <input
+          className="input"
+          placeholder="Correct Answer"
+          value={form.answer}
+          onChange={e => setForm({ ...form, answer: e.target.value })}
+        />
+
+        <button className="primary-btn" onClick={addQuestion}>
+          Add Question
+        </button>
+      </div>
+
+      {/* QUESTIONS LIST */}
+      <div className="card">
+        <h2>All Questions</h2>
+        {questions.map(q => (
+          <div className="question-item" key={q._id}>
+            <span>{q.question}</span>
+            <button
+              className="danger-btn"
+              onClick={() => deleteQuestion(q._id)}
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* SCORES */}
+      <div className="card">
+        <h2>User Scores</h2>
+
+        <table className="score-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Score</th>
+              <th>Total</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scores.map((s, i) => (
+              <tr key={i}>
+                <td>{s.userName}</td>
+                <td>{s.score}</td>
+                <td>{s.total}</td>
+                <td>{new Date(s.date).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
 
-export default Design1;
+export default AdminPanel;
