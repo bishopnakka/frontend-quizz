@@ -105,7 +105,7 @@ const Design1 = ({ questions = [] }) => {
         <h2>
           Welcome, <span style={{ color: "green" }}>{userName}</span>
         </h2>
-        <button onClick={handleLogout}>Logout</button>
+        <button className="logoutbtn" onClick={handleLogout}>Logout</button>
       </div>
 
       <h1 className="score">

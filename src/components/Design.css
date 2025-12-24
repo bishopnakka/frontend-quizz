@@ -53,3 +53,7 @@
 .answers li.wrong {
   pointer-events: none;
 }
+.logoutbtn{
+  color: orangered;
+  color: white;
+}
