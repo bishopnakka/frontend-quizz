@@ -9,12 +9,12 @@ const randomRGB = () =>
 const Design1 = ({ questions = [] }) => {
   const userName = localStorage.getItem("name") || "User";
 
-  const [selected, setSelected] = useState({});
+  const [selected, setSelected] = useState({});        // { questionId: option }
   const [score, setScore] = useState(0);
   const [colors, setColors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+  const [answeredIds, setAnsweredIds] = useState([]); // 🔥 KEY FIX
 
-  // 🎨 Generate colors once per question list
+  /* 🎨 Generate colors (stable per question list) */
   useEffect(() => {
     const temp = {};
     questions.forEach(q => {
@@ -23,7 +23,7 @@ const Design1 = ({ questions = [] }) => {
     setColors(temp);
   }, [questions]);
 
-  // ✅ Fetch previous score from backend (source of truth)
+  /* ✅ Fetch previous score + answered questions */
   useEffect(() => {
     const fetchScore = async () => {
       try {
@@ -38,18 +38,18 @@ const Design1 = ({ questions = [] }) => {
 
         if (res.ok) {
           const data = await res.json();
-          setScore(data.score);
-          setSubmitted(true); // 🔒 lock quiz
+          setScore(data.score || 0);
+          setAnsweredIds(data.answeredQuestions || []);
         }
       } catch {
-        console.log("No previous score");
+        console.log("No previous attempt");
       }
     };
 
     fetchScore();
   }, []);
 
-  // 🔓 Logout
+  /* 🔓 Logout */
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
@@ -57,8 +57,8 @@ const Design1 = ({ questions = [] }) => {
     window.location.href = "/login";
   };
 
-  // ✅ Save score to backend
-  const saveScore = useCallback(async () => {
+  /* ✅ Save score with answered question IDs */
+  const saveScore = useCallback(async (updatedAnsweredIds, updatedScore) => {
     try {
       await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
         method: "POST",
@@ -67,37 +67,34 @@ const Design1 = ({ questions = [] }) => {
           Authorization: `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify({
-          score,
-          total: questions.length
+          score: updatedScore,
+          total: questions.length,
+          answeredQuestions: updatedAnsweredIds
         })
       });
     } catch (err) {
       console.error("Failed to save score");
     }
-  }, [score, questions.length]);
+  }, [questions.length]);
 
-  // ✅ Handle answer click
+  /* ✅ Handle answer click (PER QUESTION LOCK) */
   const handleClick = (id, option, correctAnswer) => {
-    if (selected[id] || submitted) return;
+    if (answeredIds.includes(id)) return; // 🔒 lock only answered ones
 
     setSelected(prev => ({ ...prev, [id]: option }));
 
+    let newScore = score;
     if (option === correctAnswer) {
-      setScore(prev => prev + 1);
+      newScore = score + 1;
+      setScore(newScore);
     }
-  };
 
-  // ✅ Submit score once
-  useEffect(() => {
-    if (
-      Object.keys(selected).length === questions.length &&
-      questions.length > 0 &&
-      !submitted
-    ) {
-      saveScore();
-      setSubmitted(true);
-    }
-  }, [selected, questions.length, submitted, saveScore]);
+    const updatedAnsweredIds = [...answeredIds, id];
+    setAnsweredIds(updatedAnsweredIds);
+
+    // save immediately
+    saveScore(updatedAnsweredIds, newScore);
+  };
 
   if (questions.length === 0) {
     return <h2>No questions found</h2>;
@@ -106,13 +103,11 @@ const Design1 = ({ questions = [] }) => {
   return (
     <div className="box">
       {/* HEADER */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
-        }}
-      >
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }}>
         <h2>
           Welcome, <span style={{ color: "green" }}>{userName}</span>
         </h2>
@@ -136,54 +131,51 @@ const Design1 = ({ questions = [] }) => {
         Score: {score} / {questions.length}
       </h1>
 
-      {questions.map((q, index) => (
-        <div
-          key={q._id}
-          className="quizz"
-          style={{ backgroundColor: colors[q._id] }}
-        >
-          <div className="questions">
-            <h2>
-              {index + 1}. {q.question}
-            </h2>
+      {questions.map((q, index) => {
+        const isAnswered = answeredIds.includes(q._id);
+
+        return (
+          <div
+            key={q._id}
+            className="quizz"
+            style={{ backgroundColor: colors[q._id] }}
+          >
+            <div className="questions">
+              <h2>{index + 1}. {q.question}</h2>
+            </div>
+
+            <div className="answers">
+              <ul>
+                {q.options.map((opt, i) => {
+                  let className = "";
+
+                  if (isAnswered) {
+                    if (opt === q.answer) className = "correct";
+                    else if (opt === selected[q._id]) className = "wrong";
+                  }
+
+                  return (
+                    <li
+                      key={i}
+                      className={className}
+                      style={{
+                        pointerEvents: isAnswered ? "none" : "auto",
+                        opacity: isAnswered ? 0.7 : 1,
+                        cursor: isAnswered ? "not-allowed" : "pointer"
+                      }}
+                      onClick={() =>
+                        handleClick(q._id, opt, q.answer)
+                      }
+                    >
+                      {i + 1}. {opt}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </div>
-
-          <div className="answers">
-            <ul>
-              {q.options.map((opt, i) => {
-                let className = "";
-
-                if (selected[q._id]) {
-                  if (opt === q.answer) className = "correct";
-                  else if (opt === selected[q._id]) className = "wrong";
-                }
-
-                return (
-                  <li
-                    key={i}
-                    className={className}
-                    style={{
-                      pointerEvents:
-                        selected[q._id] || submitted ? "none" : "auto",
-                      opacity:
-                        selected[q._id] || submitted ? 0.7 : 1,
-                      cursor:
-                        selected[q._id] || submitted
-                          ? "not-allowed"
-                          : "pointer"
-                    }}
-                    onClick={() =>
-                      handleClick(q._id, opt, q.answer)
-                    }
-                  >
-                    {i + 1}. {opt}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
