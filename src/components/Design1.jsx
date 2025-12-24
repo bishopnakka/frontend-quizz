@@ -1,98 +1,112 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import "./Design.css";
-
-//changed for quesstions lock
 
 const randomRGB = () =>
   `rgb(${Math.floor(Math.random() * 200)}, ${Math.floor(
     Math.random() * 200
   )}, ${Math.floor(Math.random() * 200)})`;
 
-const Design1 = ({ questions }) => {
+const Design1 = ({ questions = [] }) => {
   const userName = localStorage.getItem("name") || "User";
-  const userKey = `quiz_${userName}`; // 🔐 user-specific storage
 
-  // 🔹 Load saved state (persist after refresh)
-  const savedSelected =
-    JSON.parse(localStorage.getItem(`${userKey}_selected`)) || {};
-  const savedScore =
-    JSON.parse(localStorage.getItem(`${userKey}_score`)) || 0;
-
-  const [selected, setSelected] = useState(savedSelected);
-  const [score, setScore] = useState(savedScore);
+  const [selected, setSelected] = useState({});
+  const [score, setScore] = useState(0);
+  const [attemptedCount, setAttemptedCount] = useState(0);
   const [colors, setColors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // 🎨 Generate colors once
+  /* 🎨 Stable colors */
   useEffect(() => {
     const temp = {};
     questions.forEach(q => {
-      temp[q._id] = randomRGB();
+      temp[q._id] = temp[q._id] || randomRGB();
     });
     setColors(temp);
   }, [questions]);
 
-  // ✅ Handle answer click (LOCK + SAVE)
-  const handleClick = (id, option, correctAnswer) => {
-    if (selected[id]) return;
+  /* ✅ Load score from BACKEND (SOURCE OF TRUTH) */
+  useEffect(() => {
+    const loadScore = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/scores/me`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
+        );
 
-    const updatedSelected = { ...selected, [id]: option };
-    setSelected(updatedSelected);
-    localStorage.setItem(
-      `${userKey}_selected`,
-      JSON.stringify(updatedSelected)
-    );
+        if (res.ok) {
+          const data = await res.json();
+          setScore(data.score);
+          setAttemptedCount(data.total); // 🔥 KEY FIX
+        }
+      } catch {
+        // first-time user → no score
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadScore();
+  }, []);
+
+  /* 🔓 Logout */
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login";
+  };
+
+  /* ✅ Save / update score */
+  const saveScore = useCallback(async (newScore) => {
+    await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      },
+      body: JSON.stringify({
+        score: newScore,
+        total: questions.length
+      })
+    });
+  }, [questions.length]);
+
+  /* ✅ Click handler */
+  const handleClick = (id, option, correctAnswer, index) => {
+    // 🔒 lock only OLD questions
+    if (index < attemptedCount || selected[id]) return;
+
+    setSelected(prev => ({ ...prev, [id]: option }));
 
     if (option === correctAnswer) {
-      const newScore = score + 1;
-      setScore(newScore);
-      localStorage.setItem(
-        `${userKey}_score`,
-        JSON.stringify(newScore)
-      );
+      setScore(prev => prev + 1);
     }
   };
 
-  // ✅ Save score to backend ONCE after quiz finish
+  /* ✅ Submit when ALL current questions answered */
   useEffect(() => {
     if (
-      Object.keys(selected).length === questions.length &&
-      questions.length > 0 &&
-      !submitted
+      Object.keys(selected).length + attemptedCount === questions.length &&
+      questions.length > 0
     ) {
-      saveScore();
-      setSubmitted(true);
+      saveScore(score);
+      setAttemptedCount(questions.length);
     }
-  }, [selected]);
+  }, [selected, attemptedCount, questions.length, saveScore, score]);
 
-  const saveScore = async () => {
-    try {
-      await fetch("http://localhost:5000/scores", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`
-        },
-        body: JSON.stringify({
-          score,
-          total: questions.length
-        })
-      });
-    } catch (err) {
-      console.error("Failed to save score");
-    }
-  };
-
-  if (questions.length === 0) {
-    return <h2>No questions found</h2>;
-  }
+  if (loading) return <h2>Loading quiz...</h2>;
+  if (questions.length === 0) return <h2>No questions found</h2>;
 
   return (
     <div className="box">
-      {/* 👤 USER NAME */}
-      <h2 style={{ textAlign: "center" }}>
-        Welcome, <span style={{ color: "green" }}>{userName}</span>
-      </h2>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <h2>
+          Welcome, <span style={{ color: "green" }}>{userName}</span>
+        </h2>
+        <button onClick={handleLogout}>Logout</button>
+      </div>
 
       <h1 className="score">
         Score: {score} / {questions.length}
@@ -104,40 +118,35 @@ const Design1 = ({ questions }) => {
           className="quizz"
           style={{ backgroundColor: colors[q._id] }}
         >
-          <div className="questions">
-            <h2>{index + 1}. {q.question}</h2>
-          </div>
+          <h2>{index + 1}. {q.question}</h2>
 
-          <div className="answers">
-            <ul>
-              {q.options.map((opt, i) => {
-                let className = "";
+          <ul>
+            {q.options.map((opt, i) => {
+              let className = "";
+              if (selected[q._id]) {
+                if (opt === q.answer) className = "correct";
+                else if (opt === selected[q._id]) className = "wrong";
+              }
 
-                if (selected[q._id]) {
-                  if (opt === q.answer) className = "correct";
-                  else if (opt === selected[q._id]) className = "wrong";
-                }
-
-                return (
-                  <li
-                    key={i}
-                    className={className}
-                    style={{
-                      pointerEvents: selected[q._id] ? "none" : "auto",
-                      opacity: selected[q._id] ? 0.7 : 1,
-                      cursor: selected[q._id] ? "not-allowed" : "pointer"
-                    }}
-                    onClick={() =>
-                      !selected[q._id] &&
-                      handleClick(q._id, opt, q.answer)
-                    }
-                  >
-                    {i + 1}. {opt}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+              return (
+                <li
+                  key={i}
+                  className={className}
+                  style={{
+                    pointerEvents:
+                      index < attemptedCount ? "none" : "auto",
+                    opacity:
+                      index < attemptedCount ? 0.6 : 1
+                  }}
+                  onClick={() =>
+                    handleClick(q._id, opt, q.answer, index)
+                  }
+                >
+                  {opt}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       ))}
     </div>
