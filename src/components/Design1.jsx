@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import "./Design.css";
 
+//code changed for questions lock
 const randomRGB = () =>
   `rgb(${Math.floor(Math.random() * 200)}, ${Math.floor(
     Math.random() * 200
