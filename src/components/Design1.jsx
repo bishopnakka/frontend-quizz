@@ -15,16 +15,20 @@ const Design1 = ({ questions = [] }) => {
   const [colors, setColors] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // 🎨 Stable colors
+  // Color stability
   useEffect(() => {
     const temp = {};
     questions.forEach(q => {
-      temp[q._id] = temp[q._id] || randomRGB();
+      if (!colors[q._id]) {
+        temp[q._id] = randomRGB();
+      } else {
+        temp[q._id] = colors[q._id];
+      }
     });
     setColors(temp);
   }, [questions]);
 
-  // 🔍 Load score from DB
+  // Load score from Backend
   useEffect(() => {
     const loadScore = async () => {
       try {
@@ -42,7 +46,7 @@ const Design1 = ({ questions = [] }) => {
           setScore(data.score);
           setAttemptedCount(data.total);
         }
-      } catch (error) {
+      } catch (err) {
         console.log("No previous score found");
       } finally {
         setLoading(false);
@@ -52,14 +56,12 @@ const Design1 = ({ questions = [] }) => {
     loadScore();
   }, []);
 
-  // 🚪 Logout
   const handleLogout = () => {
     localStorage.clear();
     window.location.href = "/login";
   };
 
-  // 💾 Save Score
-  const saveScore = useCallback(async (finalScore) => {
+  const saveScore = useCallback(async (updatedScore) => {
     await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
       method: "POST",
       headers: {
@@ -67,27 +69,26 @@ const Design1 = ({ questions = [] }) => {
         Authorization: `Bearer ${localStorage.getItem("token")}`
       },
       body: JSON.stringify({
-        score: finalScore,
+        score: updatedScore,
         total: questions.length
       })
     });
   }, [questions.length]);
 
-  // 🎯 Answer Click Handler
   const handleClick = (id, option, correctAnswer, index) => {
     if (index < attemptedCount || selected[id]) return;
 
-    const newSelected = { ...selected, [id]: option };
-    setSelected(newSelected);
+    const updatedSelected = { ...selected, [id]: option };
+    setSelected(updatedSelected);
 
-    let newScore = score;
+    let updatedScore = score;
     if (option === correctAnswer) {
-      newScore = score + 1;
-      setScore(newScore);
+      updatedScore = score + 1;
+      setScore(updatedScore);
     }
 
-    if (Object.keys(newSelected).length + attemptedCount === questions.length) {
-      saveScore(newScore);
+    if (Object.keys(updatedSelected).length + attemptedCount === questions.length) {
+      saveScore(updatedScore);
       setAttemptedCount(questions.length);
     }
   };
@@ -97,47 +98,46 @@ const Design1 = ({ questions = [] }) => {
 
   return (
     <div className="box">
-      {/* Header */}
       <div className="top-bar">
         <h2>Welcome, <span style={{ color: "green" }}>{userName}</span></h2>
         <button className="logoutbtn" onClick={handleLogout}>Logout</button>
       </div>
 
-      {/* Score View */}
       <h1 className="score">Score: {score} / {questions.length}</h1>
 
-      {/* QUESTIONS */}
-      {questions.map((q, index) => (
-        <div key={q._id} className="quizz" style={{ backgroundColor: colors[q._id] }}>
-          <h2>{index + 1}. {q.question}</h2>
+      {questions.map((q, index) => {
+        const isLocked = index < attemptedCount;
 
-          <ul>
-            {q.options.map((opt, i) => {
-              const isLocked = index < attemptedCount;
-              let className = "";
-
-              if (selected[q._id]) {
-                if (opt === q.answer) className = "correct";
-                else if (opt === selected[q._id]) className = "wrong";
-              }
-
-              return (
+        return (
+          <div key={q._id} className="quizz" style={{ backgroundColor: colors[q._id] }}>
+            <h2>{index + 1}. {q.question}</h2>
+            <ul>
+              {q.options.map((opt, i) => (
                 <li
                   key={i}
-                  className={className}
+                  onClick={() => handleClick(q._id, opt, q.answer, index)}
+                  className={
+                    selected[q._id]
+                      ? opt === q.answer
+                        ? "correct"
+                        : opt === selected[q._id]
+                        ? "wrong"
+                        : ""
+                      : ""
+                  }
                   style={{
                     pointerEvents: isLocked ? "none" : "auto",
-                    opacity: isLocked ? 0.6 : 1
+                    opacity: isLocked ? 0.6 : 1,
+                    cursor: isLocked ? "not-allowed" : "pointer"
                   }}
-                  onClick={() => handleClick(q._id, opt, q.answer, index)}
                 >
                   {opt}
                 </li>
-              );
-            })}
-          </ul>
-        </div>
-      ))}
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 };
