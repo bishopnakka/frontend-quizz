@@ -1,167 +1,145 @@
+import React, { useEffect, useState, useCallback } from "react";
+import "./Design.css";
 
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import "./AdminPanel.css";
+const randomRGB = () =>
+  `rgb(${Math.floor(Math.random() * 200)}, ${Math.floor(
+    Math.random() * 200
+  )}, ${Math.floor(Math.random() * 200)})`;
 
-const AdminPanel = ({ questions, setQuestions }) => {
-  const navigate = useNavigate();
+const Design1 = ({ questions = [] }) => {
+  const userName = localStorage.getItem("name") || "User";
 
-  const token = localStorage.getItem("token");
-  const role = localStorage.getItem("role");
+  const [selected, setSelected] = useState({});
+  const [score, setScore] = useState(0);
+  const [attemptedCount, setAttemptedCount] = useState(0);
+  const [colors, setColors] = useState({});
+  const [loading, setLoading] = useState(true);
 
+  // 🎨 Stable colors
   useEffect(() => {
-    if (!token || role !== "ADMIN") {
-      navigate("/login");
-    }
-  }, [token, role, navigate]);
-  const [form, setForm] = useState({
-    question: "",
-    options: ["", "", "", ""],
-    answer: ""
-  });
+    const temp = {};
+    questions.forEach(q => {
+      temp[q._id] = temp[q._id] || randomRGB();
+    });
+    setColors(temp);
+  }, [questions]);
 
-  const handleOptionChange = (index, value) => {
-    const newOptions = [...form.options];
-    newOptions[index] = value;
-    setForm({ ...form, options: newOptions });
+  // 🔍 Load score from DB
+  useEffect(() => {
+    const loadScore = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/scores/me`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setScore(data.score);
+          setAttemptedCount(data.total);
+        }
+      } catch (error) {
+        console.log("No previous score found");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadScore();
+  }, []);
+
+  // 🚪 Logout
+  const handleLogout = () => {
+    localStorage.clear();
+    window.location.href = "/login";
   };
 
-  const addQuestion = async () => {
-    if (!form.question || !form.answer) {
-      alert("Fill all fields");
-      return;
-    }
-
-    const res = await fetch(`${process.env.REACT_APP_API_URL}/questions`, {
+  // 💾 Save Score
+  const saveScore = useCallback(async (finalScore) => {
+    await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${localStorage.getItem("token")}`
       },
-      body: JSON.stringify(form)
+      body: JSON.stringify({
+        score: finalScore,
+        total: questions.length
+      })
     });
+  }, [questions.length]);
 
-    const newQuestion = await res.json();
-    setQuestions([newQuestion, ...questions]);
+  // 🎯 Answer Click Handler
+  const handleClick = (id, option, correctAnswer, index) => {
+    if (index < attemptedCount || selected[id]) return;
 
-    setForm({
-      question: "",
-      options: ["", "", "", ""],
-      answer: ""
-    });
+    const newSelected = { ...selected, [id]: option };
+    setSelected(newSelected);
+
+    let newScore = score;
+    if (option === correctAnswer) {
+      newScore = score + 1;
+      setScore(newScore);
+    }
+
+    if (Object.keys(newSelected).length + attemptedCount === questions.length) {
+      saveScore(newScore);
+      setAttemptedCount(questions.length);
+    }
   };
 
-  const deleteQuestion = async (id) => {
-    await fetch(`${process.env.REACT_APP_API_URL}/questions/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    setQuestions(questions.filter(q => q._id !== id));
-  };
-
-  const [scores, setScores] = useState([]);
-
-  useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/scores`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => setScores(data))
-      .catch(err => console.error(err));
-  }, [token]);
-
-  const logout = () => {
-    localStorage.clear();
-    navigate("/login");
-
-  };
+  if (loading) return <h2>Loading quiz...</h2>;
+  if (!questions.length) return <h2>No Questions Available</h2>;
 
   return (
-
-    <div className="admin-container">
-      {/* HEADER */}
-      <div className="admin-header">
-        <h1>Admin Panel</h1>
-        <button className="logout-btn" onClick={logout}>Logout</button>
+    <div className="box">
+      {/* Header */}
+      <div className="top-bar">
+        <h2>Welcome, <span style={{ color: "green" }}>{userName}</span></h2>
+        <button className="logoutbtn" onClick={handleLogout}>Logout</button>
       </div>
 
-      {/* ADD QUESTION */}
-      <div className="card">
-        <h2>Add Question</h2>
+      {/* Score View */}
+      <h1 className="score">Score: {score} / {questions.length}</h1>
 
-        <input
-          className="input"
-          placeholder="Question"
-          value={form.question}
-          onChange={e => setForm({ ...form, question: e.target.value })}
-        />
+      {/* QUESTIONS */}
+      {questions.map((q, index) => (
+        <div key={q._id} className="quizz" style={{ backgroundColor: colors[q._id] }}>
+          <h2>{index + 1}. {q.question}</h2>
 
-        {form.options.map((opt, i) => (
-          <input
-            key={i}
-            className="input"
-            placeholder={`Option ${i + 1}`}
-            value={opt}
-            onChange={e => handleOptionChange(i, e.target.value)}
-          />
-        ))}
+          <ul>
+            {q.options.map((opt, i) => {
+              const isLocked = index < attemptedCount;
+              let className = "";
 
-        <input
-          className="input"
-          placeholder="Correct Answer"
-          value={form.answer}
-          onChange={e => setForm({ ...form, answer: e.target.value })}
-        />
+              if (selected[q._id]) {
+                if (opt === q.answer) className = "correct";
+                else if (opt === selected[q._id]) className = "wrong";
+              }
 
-        <button className="primary-btn" onClick={addQuestion}>
-          Add Question
-        </button>
-      </div>
-
-      {/* QUESTIONS LIST */}
-      <div className="card">
-        <h2>All Questions</h2>
-        {questions.map(q => (
-          <div className="question-item" key={q._id}>
-            <span>{q.question}</span>
-            <button
-              className="danger-btn"
-              onClick={() => deleteQuestion(q._id)}
-            >
-              Delete
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* SCORES */}
-      <div className="card">
-        <h2>User Scores</h2>
-
-        <table className="score-table">
-          <thead>
-            <tr>
-              <th>User</th>
-              <th>Score</th>
-              <th>Total</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {scores.map((s, i) => (
-              <tr key={i}>
-                <td>{s.userName}</td>
-                <td>{s.score}</td>
-                <td>{s.total}</td>
-                <td>{new Date(s.date).toLocaleString()}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              return (
+                <li
+                  key={i}
+                  className={className}
+                  style={{
+                    pointerEvents: isLocked ? "none" : "auto",
+                    opacity: isLocked ? 0.6 : 1
+                  }}
+                  onClick={() => handleClick(q._id, opt, q.answer, index)}
+                >
+                  {opt}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 };
 
-export default AdminPanel;
+export default Design1;
