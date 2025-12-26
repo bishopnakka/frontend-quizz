@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./AdminPanel.css";
@@ -13,7 +14,6 @@ const AdminPanel = ({ questions, setQuestions }) => {
       navigate("/login");
     }
   }, [token, role, navigate]);
-
   const [form, setForm] = useState({
     question: "",
     options: ["", "", "", ""],
@@ -74,9 +74,11 @@ const AdminPanel = ({ questions, setQuestions }) => {
   const logout = () => {
     localStorage.clear();
     navigate("/login");
+
   };
 
   return (
+
     <div className="admin-container">
       {/* HEADER */}
       <div className="admin-header">

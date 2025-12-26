@@ -56,7 +56,6 @@ const AdminPanel = ({ questions, setQuestions }) => {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` }
     });
-
     setQuestions(questions.filter(q => q._id !== id));
   };
 
@@ -78,19 +77,18 @@ const AdminPanel = ({ questions, setQuestions }) => {
 
   return (
     <div className="admin-container">
-      {/* HEADER */}
       <div className="admin-header">
         <h1>Admin Panel</h1>
         <button className="logout-btn" onClick={logout}>Logout</button>
       </div>
 
       {/* ADD QUESTION */}
-      <div className="card">
+      <div className="admin-card">
         <h2>Add Question</h2>
 
         <input
-          className="input"
-          placeholder="Question"
+          className="admin-input"
+          placeholder="Enter question"
           value={form.question}
           onChange={e => setForm({ ...form, question: e.target.value })}
         />
@@ -98,7 +96,7 @@ const AdminPanel = ({ questions, setQuestions }) => {
         {form.options.map((opt, i) => (
           <input
             key={i}
-            className="input"
+            className="admin-input"
             placeholder={`Option ${i + 1}`}
             value={opt}
             onChange={e => handleOptionChange(i, e.target.value)}
@@ -106,35 +104,33 @@ const AdminPanel = ({ questions, setQuestions }) => {
         ))}
 
         <input
-          className="input"
-          placeholder="Correct Answer"
+          className="admin-input"
+          placeholder="Correct answer"
           value={form.answer}
           onChange={e => setForm({ ...form, answer: e.target.value })}
         />
 
-        <button className="primary-btn" onClick={addQuestion}>
+        <button className="add-btn" onClick={addQuestion}>
           Add Question
         </button>
       </div>
 
       {/* QUESTIONS LIST */}
-      <div className="card">
+      <div className="admin-card">
         <h2>All Questions</h2>
+
         {questions.map(q => (
-          <div className="question-item" key={q._id}>
+          <div className="question-box" key={q._id}>
             <span>{q.question}</span>
-            <button
-              className="danger-btn"
-              onClick={() => deleteQuestion(q._id)}
-            >
+            <button className="delete-btn" onClick={() => deleteQuestion(q._id)}>
               Delete
             </button>
           </div>
         ))}
       </div>
 
-      {/* SCORES */}
-      <div className="card">
+      {/* USER SCORES */}
+      <div className="admin-card">
         <h2>User Scores</h2>
 
         <table className="score-table">
@@ -152,7 +148,7 @@ const AdminPanel = ({ questions, setQuestions }) => {
                 <td>{s.userName}</td>
                 <td>{s.score}</td>
                 <td>{s.total}</td>
-                <td>{new Date(s.date).toLocaleString()}</td>
+                <td>{new Date(s.createdAt || s.date).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>

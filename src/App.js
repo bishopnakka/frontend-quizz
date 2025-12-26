@@ -9,38 +9,45 @@ function App() {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔐 Auth info from localStorage
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
 
-  // Fetch questions
   useEffect(() => {
-    fetch(`${process.env.REACT_APP_API_URL}/questions`)
-      .then(res => res.json())
-      .then(data => {
-        setQuestions(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.log(err);
-        setLoading(false);
-      });
+    const fetchQuestions = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/questions`
+        );
+
+        if (!res.ok) throw new Error("Failed to fetch questions");
+
+        const data = await res.json();
+        setQuestions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Question fetch error:", err);
+        setQuestions([]); // ✅ prevent infinite loading
+      } finally {
+        setLoading(false); // ✅ ALWAYS stop loading
+      }
+    };
+
+    fetchQuestions();
   }, []);
 
   if (loading) {
-    return <h2 style={{ textAlign: "center" }}>Loading questions...</h2>;
+    return (
+      <h2 style={{ textAlign: "center", marginTop: "40px" }}>
+        Loading questions...
+      </h2>
+    );
   }
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* LOGIN */}
         <Route path="/login" element={<Login />} />
-
-        {/* REGISTER */}
         <Route path="/register" element={<Register />} />
 
-        {/* QUIZ (Protected) */}
         <Route
           path="/"
           element={
@@ -52,7 +59,6 @@ function App() {
           }
         />
 
-        {/* ADMIN (Protected + Role Based) */}
         <Route
           path="/admin"
           element={

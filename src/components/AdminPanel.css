@@ -1,80 +1,118 @@
+/* Admin Panel Styles */
+
 .admin-container {
+  max-width: 900px;
+  margin: auto;
   padding: 20px;
-  background: #f4f6f9;
-  min-height: 100vh;
   font-family: Arial, sans-serif;
+  color: #222;
 }
 
 .admin-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
 }
 
 .logout-btn {
   background: #e74c3c;
-  color: white;
-  border: none;
+  color: #fff;
   padding: 8px 14px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.card {
-  background: white;
-  padding: 20px;
-  margin-bottom: 20px;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-}
-
-.input {
-  width: 100%;
-  padding: 8px;
-  margin: 6px 0;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-}
-
-.primary-btn {
-  background: #2ecc71;
-  color: white;
-  padding: 8px 16px;
   border: none;
-  border-radius: 4px;
-  margin-top: 10px;
+  border-radius: 5px;
   cursor: pointer;
+  font-weight: bold;
 }
 
-.question-item {
+.logout-btn:hover {
+  background: #c0392b;
+}
+
+/* Add Question Section */
+.admin-card {
+  background: #f4f4f4;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.admin-input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 15px;
+}
+
+.add-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  margin-top: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.add-btn:hover {
+  background: #2477b3;
+}
+
+/* Question Lists */
+.question-box {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid #eee;
+  align-items: center;
+  background: #fff7e6;
+  border-left: 4px solid #ffa726;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
 }
 
-.danger-btn {
-  background: #c0392b;
-  color: white;
+.delete-btn {
+  background: #d32f2f;
   border: none;
-  padding: 4px 10px;
-  border-radius: 4px;
+  padding: 6px 12px;
+  color: white;
   cursor: pointer;
+  border-radius: 5px;
 }
 
+.delete-btn:hover {
+  background: #b71c1c;
+}
+
+/* Score Table */
 .score-table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 15px;
 }
 
 .score-table th,
 .score-table td {
   border: 1px solid #ddd;
-  padding: 8px;
+  padding: 10px;
+  text-align: center;
 }
 
 .score-table th {
-  background: #2c3e50;
+  background-color: #333;
   color: white;
+}
+
+@media (max-width: 600px) {
+  .admin-container {
+    padding: 10px;
+  }
+  
+  .admin-input,
+  .add-btn {
+    font-size: 14px;
+  }
 }
