@@ -16,19 +16,32 @@ const Design1 = ({ questions = [] }) => {
   const [loading, setLoading] = useState(true);
 
   // Color stability
-  useEffect(() => {
+  // useEffect(() => {
+  //   const temp = {};
+  //   questions.forEach(q => {
+  //     if (!colors[q._id]) {
+  //       temp[q._id] = randomRGB();
+  //     } else {
+  //       temp[q._id] = colors[q._id];
+  //     }
+  //   });
+  //   setColors(temp);
+  // }, [questions]);
+
+    useEffect(() => {
+  setColors(prevColors => {
     const temp = {};
+
     questions.forEach(q => {
-      if (!colors[q._id]) {
-        temp[q._id] = randomRGB();
-      } else {
-        temp[q._id] = colors[q._id];
-      }
+      temp[q._id] = prevColors[q._id] || randomRGB();
     });
-    setColors(temp);
-  }, [questions]);
+
+    return temp;
+  });
+}, [questions]);
 
   // Load score from Backend
+
   useEffect(() => {
     const loadScore = async () => {
       try {
@@ -61,7 +74,22 @@ const Design1 = ({ questions = [] }) => {
     window.location.href = "/login";
   };
 
+  // const saveScore = useCallback(async (updatedScore) => {
+  //   await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
+  //     method: "POST",
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       Authorization: `Bearer ${localStorage.getItem("token")}`
+  //     },
+  //     body: JSON.stringify({
+  //       score: updatedScore,
+  //       total: questions.length
+  //     })
+  //   });
+  // }, [questions.length]);
+
   const saveScore = useCallback(async (updatedScore) => {
+  try {
     await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
       method: "POST",
       headers: {
@@ -73,25 +101,50 @@ const Design1 = ({ questions = [] }) => {
         total: questions.length
       })
     });
-  }, [questions.length]);
+  } catch (err) {
+    console.error("Failed to save score");
+  }
+}, [questions.length]);
+
+
+  // const handleClick = (id, option, correctAnswer, index) => {
+  //   if (index < attemptedCount || selected[id]) return;
+
+  //   const updatedSelected = { ...selected, [id]: option };
+  //   setSelected(updatedSelected);
+
+  //   let updatedScore = score;
+  //   if (option === correctAnswer) {
+  //     updatedScore = score + 1;
+  //     setScore(updatedScore);
+  //   }
+
+  //   if (Object.keys(updatedSelected).length + attemptedCount === questions.length) {
+  //     saveScore(updatedScore);
+  //     setAttemptedCount(questions.length);
+  //   }
+  // };
 
   const handleClick = (id, option, correctAnswer, index) => {
-    if (index < attemptedCount || selected[id]) return;
+  if (index < attemptedCount || selected[id]) return;
 
-    const updatedSelected = { ...selected, [id]: option };
-    setSelected(updatedSelected);
+  setSelected(prev => ({ ...prev, [id]: option }));
 
-    let updatedScore = score;
-    if (option === correctAnswer) {
-      updatedScore = score + 1;
-      setScore(updatedScore);
-    }
+  const updatedScore =
+    option === correctAnswer ? score + 1 : score;
 
-    if (Object.keys(updatedSelected).length + attemptedCount === questions.length) {
-      saveScore(updatedScore);
-      setAttemptedCount(questions.length);
-    }
-  };
+  if (option === correctAnswer) {
+    setScore(updatedScore);
+  }
+
+  if (
+    Object.keys(selected).length + 1 + attemptedCount === questions.length
+  ) {
+    saveScore(updatedScore);
+    setAttemptedCount(questions.length);
+  }
+};
+
 
   if (loading) return <h2>Loading quiz...</h2>;
   if (!questions.length) return <h2>No Questions Available</h2>;
