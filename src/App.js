@@ -25,9 +25,9 @@ function App() {
         setQuestions(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Question fetch error:", err);
-        setQuestions([]); // ✅ prevent infinite loading
+        setQuestions([]); //  prevent infinite loading
       } finally {
-        setLoading(false); // ✅ ALWAYS stop loading
+        setLoading(false); //  ALWAYS stop loading
       }
     };
 

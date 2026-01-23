@@ -23,12 +23,12 @@ function Login() {
         return;
       }
 
-      // ✅ SAVE LOGIN INFO
+      //  SAVE LOGIN INFO
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("name", data.name);
 
-      // ✅ FORCE RELOAD (FIX)
+      //  FORCE RELOAD (FIX)
       if (data.role === "ADMIN") {
         window.location.href = "/admin";
       } else {
