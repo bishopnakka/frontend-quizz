@@ -89,6 +89,19 @@ const Design1 = ({ questions = [] }) => {
   // }, [questions.length]);
 
 const saveScore = useCallback(async (updatedScore) => {
+  if (
+    typeof updatedScore !== "number" ||
+    updatedScore < 0 ||
+    questions.length <= 0 ||
+    updatedScore > questions.length
+  ) {
+    console.error("Invalid score payload", {
+      updatedScore,
+      total: questions.length
+    });
+    return;
+  }
+
   try {
     const res = await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
       method: "POST",
@@ -103,14 +116,12 @@ const saveScore = useCallback(async (updatedScore) => {
     });
 
     const data = await res.json();
-
-    if (!res.ok) {
-      console.error("Backend error:", data);
-    }
+    if (!res.ok) console.error("Backend error:", data);
   } catch (err) {
     console.error("Failed to save score", err);
   }
 }, [questions.length]);
+
 
 
 
@@ -132,25 +143,31 @@ const saveScore = useCallback(async (updatedScore) => {
   //   }
   // };
 
-  const handleClick = (id, option, correctAnswer, index) => {
+const handleClick = (id, option, correctAnswer, index) => {
   if (index < attemptedCount || selected[id]) return;
 
-  setSelected(prev => ({ ...prev, [id]: option }));
+  setSelected(prev => {
+    const updatedSelected = { ...prev, [id]: option };
 
-  const updatedScore =
-    option === correctAnswer ? score + 1 : score;
+    const correctCount =
+      Object.entries(updatedSelected).filter(
+        ([qid, ans]) =>
+          questions.find(q => q._id === qid)?.answer === ans
+      ).length;
 
-  if (option === correctAnswer) {
-    setScore(updatedScore);
-  }
+    if (
+      Object.keys(updatedSelected).length + attemptedCount ===
+      questions.length
+    ) {
+      saveScore(correctCount);
+      setAttemptedCount(questions.length);
+      setScore(correctCount);
+    }
 
-  if (
-    Object.keys(selected).length + 1 + attemptedCount === questions.length
-  ) {
-    saveScore(updatedScore);
-    setAttemptedCount(questions.length);
-  }
+    return updatedSelected;
+  });
 };
+
 
 
   if (loading) return <h2>Loading quiz...</h2>;
