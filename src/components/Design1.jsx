@@ -88,9 +88,9 @@ const Design1 = ({ questions = [] }) => {
   //   });
   // }, [questions.length]);
 
-  const saveScore = useCallback(async (updatedScore) => {
+const saveScore = useCallback(async (updatedScore) => {
   try {
-    await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
+    const res = await fetch(`${process.env.REACT_APP_API_URL}/scores`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -101,10 +101,17 @@ const Design1 = ({ questions = [] }) => {
         total: questions.length
       })
     });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Backend error:", data);
+    }
   } catch (err) {
-    console.error("Failed to save score");
+    console.error("Failed to save score", err);
   }
 }, [questions.length]);
+
 
 
   // const handleClick = (id, option, correctAnswer, index) => {
