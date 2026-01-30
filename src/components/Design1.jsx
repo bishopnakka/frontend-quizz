@@ -149,24 +149,32 @@ const handleClick = (id, option, correctAnswer, index) => {
   setSelected(prev => {
     const updatedSelected = { ...prev, [id]: option };
 
-    const correctCount =
-      Object.entries(updatedSelected).filter(
-        ([qid, ans]) =>
-          questions.find(q => q._id === qid)?.answer === ans
-      ).length;
+    // LIVE score update
+    if (option === correctAnswer) {
+      setScore(prevScore => prevScore + 1);
+    }
 
-    if (
-      Object.keys(updatedSelected).length + attemptedCount ===
-      questions.length
-    ) {
-      saveScore(correctCount);
+    const answered =
+      Object.keys(updatedSelected).length + attemptedCount;
+
+    // FINAL submit
+    if (answered === questions.length) {
+      const finalScore = Object.entries(updatedSelected).reduce(
+        (count, [qid, ans]) => {
+          const q = questions.find(q => q._id === qid);
+          return q && q.answer === ans ? count + 1 : count;
+        },
+        score
+      );
+
+      saveScore(finalScore);
       setAttemptedCount(questions.length);
-      setScore(correctCount);
     }
 
     return updatedSelected;
   });
 };
+
 
 
 
